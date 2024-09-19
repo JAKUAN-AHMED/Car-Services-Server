@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const cookieParser = require("cookie-parser");
+const jwt = require('jsonwebtoken');
+const cookieParser=require('cookie-parser');
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
@@ -10,38 +10,37 @@ const port = process.env.PORT || 5000;
 //midlewares
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
-    credentials: true,
+    origin: ['http://localhost:5173'],
+    credentials:true,
   })
 );
 app.use(express.json());
 app.use(cookieParser());
 
 //own midlewares
-const logger = async (req, res, next) => {
-  console.log("called : ", req.host, req.originalUrl);
+const logger=(req,res,next)=>{
+  console.log('logger : info ',req.method,req.url);
   next();
-};
-
-const verifyToken = async (req, res, next) => {
-  const token = req.cookies?.token;
-  console.log("value of token in middleware", token);
-  if (!token) {
-    return res.status(401).send({ message: "not authorized" });
+}
+//verifying token
+const VerifyToken=(req,res,next)=>{
+  const token=req?.cookies?.token;
+  // console.log('token in the midlewares',token);
+  //?if token is not exists
+  if(!token)
+  {
+    return res.status(401).send({message:'unauthorized access'});
   }
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    //err
-    if (err) {
-      console.log(err);
-      return res.status(401).send({ message: "unauthorized" });
+  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+    if(err)
+    {
+      return res.status(401).send({message: 'unauthorized'});
     }
-
-    //if token is valid then it would be decoded
-    console.log("value in the token", decoded);
-    req.user = decoded;
+    req.user=decoded;
     next();
-  });
-};
+  })
+}
+
 app.get("/", (req, res) => {
   res.send("This is car Doctor");
 });
@@ -64,25 +63,30 @@ async function run() {
     const bookingsCollection = client.db("CarDoctor").collection("bookings");
 
     // auth related api
-    app.post("/jwt", logger, async (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
-      });
-      res
-        .cookie("token", token, {
-          httpOnly: true,
-          secure: false,
-          sameSite: "strict",
-        })
-        .send({ success: true });
-    });
+    app.post('/jwt',async(req,res)=>{
+      const user=req.body;
+      console.log('user for token',user);
+      const token=jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+      
+      const cookiesOptions={
+        httpOnly:true,
+        secure:false,
+        sameSite:'strict'
+      }
+      res.cookie('token',token,cookiesOptions)
+      .send({success:true});
+    })
+    //clear user cookies
+    app.post('/logout',async(req,res)=>{
+      const loggedOutuser=req.body;
+      console.log('logging out user',loggedOutuser);
+      res.clearCookie('token',{maxAge:0}).send({success:true});
+    })
 
     //services related  api
 
     //get all
-    app.get("/services", logger, async (req, res) => {
+    app.get("/services", async (req, res) => {
       const cursor = ServiceCollection.find();
       const result = await cursor.toArray();
       res.send(result);
@@ -102,12 +106,12 @@ async function run() {
     //bookings
 
     //get of bookings
-    app.get("/bookings", logger, verifyToken, async (req, res) => {
+    app.get("/bookings", logger,VerifyToken, async (req, res) => {
       console.log(req.query.email);
-      // console.log('tok tok token',req.cookies.token);
-      console.log("user in the valid token", req.user);
-      if (req.query.email !== req.user.email) {
-        return res.status(403).send({ message: "forbidden authorize" });
+      console.log('token owner info : ',req.user);
+      if(req.user.email!==req.query.email)
+      {
+        return res.status(403).send({message:'forbidden'});
       }
       let query = {};
       if (req.query?.email) {
