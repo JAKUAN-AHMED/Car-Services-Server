@@ -61,7 +61,7 @@ async function run() {
     await client.connect();
     const ServiceCollection = client.db("CarDoctor").collection("Services");
     const bookingsCollection = client.db("CarDoctor").collection("bookings");
-
+   
     // auth related api
     app.post('/jwt',async(req,res)=>{
       const user=req.body;
@@ -87,7 +87,17 @@ async function run() {
 
     //get all
     app.get("/services", async (req, res) => {
-      const cursor = ServiceCollection.find();
+      const filter=req.query;
+      console.log(filter)
+      const query = { 
+        title:{$regex:filter.search,$options:'i'}
+      };
+      const options = {
+        sort: {
+          price: filter.sort === "asc" ? 1 : -1,
+        },
+      };
+      const cursor = ServiceCollection.find(query,options);
       const result = await cursor.toArray();
       res.send(result);
     });
